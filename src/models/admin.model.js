@@ -25,18 +25,23 @@ const adminSchema = new Schema(
             lowecase: true,
             trim: true,
         },
-        mobNumber: {
-            type: Number,
-            required: true,
-            unique: true,
-        },
         password: {
             type: String,
             required: [true, 'Password is required']
         },
-        confirmPassword: {
-            type: String,
+        verifiedAdmin: {
+            type: Boolean,
+            required: true,
+            default: false
         },
+        isSuperAdmin: {
+            type: Boolean,
+            required: true,
+            default: false
+        },
+        refreshToken: {
+            type: String
+        }
     }
 )
 
@@ -60,9 +65,9 @@ adminSchema.methods.generateAccessToken = function () {
             fullName: this.fullName
         },
         process.env.ACCESS_TOKEN_SECRET,
-        // {
-        //     expiresIn: process.env.ACCESS_TOKEN_EXPIRY
-        // }
+        {
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+        }
     )
 }
 
@@ -72,9 +77,9 @@ adminSchema.methods.generateRefreshToken = function () {
             _id: this._id
         },
         process.env.REFRESH_TOKEN_SECRET,
-        // {
-        //     expiresIn: process.env.REFRESH_TOKEN_EXPIRY
-        // }
+        {
+            expiresIn: process.env.REFRESH_TOKEN_EXPIRY
+        }
     )
 }
 
