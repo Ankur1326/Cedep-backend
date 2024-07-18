@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { loginAdmin, registerAdmin } from "../controllers/admin.controllers.js";
+import { loginAdmin, sendOtp, submitAdminDetails, verifyOtp } from "../controllers/admin.controllers.js";
 
 const router = Router()
 
-router.route("/register").post(registerAdmin)
+router.route("/send-otp").post(sendOtp)
+router.route("/verify-otp").post(verifyOtp)
+router.route("/submit-admin-details").post(submitAdminDetails)
+
 router.route("/login").post(loginAdmin)
 
 
