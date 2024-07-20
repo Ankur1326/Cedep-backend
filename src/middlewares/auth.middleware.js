@@ -6,12 +6,17 @@ import { Admin } from "../models/admin.model.js";
 export const verifyJWT = asyncHandler(async (req, _, next) => {
   try {
     // using for web browser 
-    const token = req.cookies?.accessToken || req.header("Authorization");
-    console.log("token : ", token);
+    let token = req.cookies?.accessToken || req.header("Authorization");
+    // console.log("token : ", token);
     // console.log("accessToken :", req.header(("Authorization"))); 
 
     if (!token) {
       throw new ApiError(404, "Unauthorized request");
+    }
+
+    // Remove 'Bearer ' prefix if present
+    if (token.startsWith("Bearer ")) {
+      token = token.slice(7, token.length).trim();
     }
 
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);

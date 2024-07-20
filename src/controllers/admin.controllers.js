@@ -207,17 +207,53 @@ const loginAdmin = asyncHandler(async (req, res) => {
 
 })
 
-// toggle verified email by super admin
-const toggleVerifiedEmail = async (req, res) => {
-    const { email } = req.params;
 
-    if (!email) {
-        throw new ApiError(400, "Admin email is required");
+const getCurrentAdmin = asyncHandler(async (req, res) => {
+    try {
+        return res
+            .status(200)
+            .json(new ApiResponse(200, req.user, "User fetched successfully"));
+    } catch (error) {
+        console.log("Internal server error while getting current user");
+    }
+
+});
+
+// Controller to get all admins except the logged-in user
+const getAllAdminsExceptSelf = asyncHandler(async (req, res) => {
+    try {
+        const loggedInUserId = req.user._id;
+
+        // Fetch all admins except the logged-in user
+        const admins = await Admin.find({ _id: { $ne: loggedInUserId } }).select(
+            "-password -refreshToken"
+        );
+
+        res.status(200).json({
+            success: true,
+            data: admins
+        });
+    } catch (error) {
+        console.log("error : ", error);
+        throw new ApiError(500, error?.message || "An error occurred while fetching admins");
+    }
+});
+
+// toggle verified email by super admin
+const toggleVerifiedStatus = async (req, res) => {
+    const { id } = req.params;
+
+    if (!id) {
+        throw new ApiError(400, "Admin ID is required");
+    }
+
+    if (!req.user.isSuperAdmin) {
+        throw new ApiError(400, "You are not super admin");
     }
 
     try {
-        // Find the admin by email
-        const admin = await Admin.findOne({ email });
+        // Find the admin by ID
+        const admin = await Admin.findById(id);
 
         if (!admin) {
             throw new ApiError(404, "Admin not found");
@@ -229,11 +265,43 @@ const toggleVerifiedEmail = async (req, res) => {
         // Save the updated admin
         await admin.save();
 
-        res.status(200).json(new ApiResponse(200, admin, 'Admin verification status updated successfully'));
+        res.status(200).json({ success: true, data: admin, message: 'Admin verification status updated successfully' });
     } catch (error) {
         console.error("Error updating admin verification status:", error);
         throw new ApiError(500, "Failed to update admin verification status");
     }
 };
 
-export { sendOtp, verifyOtp, submitAdminDetails, loginAdmin, toggleVerifiedEmail }
+const toggleSuperAdminStatus = async (req, res) => {
+    const { id } = req.params;
+
+    if (!id) {
+        throw new ApiError(400, "Admin ID is required");
+    }
+
+    if (!req.user.isSuperAdmin) {
+        throw new ApiError(400, "You are not super admin");
+    }
+
+    try {
+        // Find the admin by ID
+        const admin = await Admin.findById(id);
+
+        if (!admin) {
+            throw new ApiError(404, "Admin not found");
+        }
+
+        // Toggle the isSuperAdmin field
+        admin.isSuperAdmin = !admin.isSuperAdmin;
+
+        // Save the updated admin
+        await admin.save();
+
+        res.status(200).json({ success: true, data: admin, message: 'Admin super admin status updated successfully' });
+    } catch (error) {
+        console.error("Error updating admin super admin status:", error);
+        throw new ApiError(500, "Failed to update admin super admin status");
+    }
+};
+
+export { sendOtp, verifyOtp, submitAdminDetails, loginAdmin, toggleVerifiedStatus, getCurrentAdmin, getAllAdminsExceptSelf, toggleSuperAdminStatus }
