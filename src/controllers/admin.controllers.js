@@ -2,7 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Admin } from "../models/admin.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import nodemailer from 'nodemailer';
+import { sendEmail } from "../utils/sendEmail.js";
 
 const generateRefreshAndAccessToken = async (admin_id) => {
     try {
@@ -28,55 +28,33 @@ const generateOTP = () => {
 
 let memoryStore = [];
 const sendOtp = asyncHandler(async (req, res) => {
-    const { email } = req.body;
-    // console.log("from email : ", email);
+    try {
+        const { email } = req.body;
+        // console.log("from email : ", email);
 
-    if (!email) {
-        throw new ApiError(400, "email is required");
-    }
-
-    const otp = generateOTP();
-    const expiry = Date.now() + parseInt(process.env.OTP_EXPIRY, 10);
-
-    // Store email, OTP, and expiry in the array
-    memoryStore.push({ email, otp, expiry });
-    // console.log(memoryStore);
-
-    const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        secure: false,
-        auth: {
-            user: process.env.SMTP_MAIL,
-            pass: process.env.SMTP_PASSWORD
-        },
-    });
-
-    const mailOptions = {
-        from: `"CEDEP Institute" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'OTP for Admin Registration',
-        text: `Dear Admin,
-
-        Your OTP for registering a new admin is: ${otp}
-
-        CEDEP Institute`
-    };
-
-    await transporter.sendMail(mailOptions, function (error, info) {
-        if (error) {
-            console.log("Error sending email:", error);
-            throw new ApiError(500, "Failed to send email");
-        } else {
-            console.log("Email sent successfully:", info.response);
-            res.status(200).json(new ApiResponse(200, null, 'OTP sent successfully'));
+        if (!email) {
+            throw new ApiError(400, "email is required");
         }
-    });
+
+        const otp = generateOTP();
+        const expiry = Date.now() + parseInt(process.env.OTP_EXPIRY, 10);
+
+        // Store email, OTP, and expiry in the array
+        memoryStore.push({ email, otp, expiry });
+        // console.log(memoryStore);
+
+        await sendEmail(email, 'otp', { otp });
+        res.status(200).json(new ApiResponse(200, null, 'OTP sent successfully'));
+    } catch (error) {
+        console.log("Internal server error while senting otp email", error);
+        res.status(500).json({ message: "Internal server error while senting otp email" })
+    }
 })
 
 const verifyOtp = asyncHandler(async (req, res) => {
     try {
         const { email, otp } = req.body;
+        console.log(" verifing otp : ", email, otp);
 
         // Find the matching entry in the otpStore
         const storedData = memoryStore.find(entry => entry.email === email);
@@ -172,50 +150,90 @@ const loginAdmin = asyncHandler(async (req, res) => {
         // throw new ApiError(400, "Invalid email format");
         return res.status(400).json({ message: 'Invalid email format' })
     }
-    
-    const admin = await Admin.findOne({ email: identifier })
-    
-    if (!admin) {
-        return res.status(401).json({ message: 'This Admin is not registered' })
-    }
-    // console.log('admin : ', admin);
-    
-    const isPasswordValid = await admin.isPasswordCorrect(password.trim())
-    
-    if (!isPasswordValid) {
-        return res.status(401).json({ message: 'Invalid user credentials (Incorrect password)' })
-        // throw new ApiError(401, "Invalid user credentials (Incorrect password)");
-    }
 
-    const { accessToken, refreshToken } = await generateRefreshAndAccessToken(admin._id);
+    try {
+        const admin = await Admin.findOne({ email: identifier })
 
-    // for send cookie
-    const loggedInAdmin = await Admin.findById(admin._id).select(
-        "-password -refreshToken"
-    );
+        if (!admin) {
+            return res.status(401).json({ message: 'This Admin is not registered' })
+        }
+        // console.log('admin : ', admin);
 
-    const options = {
-        httpOnly: true,
-        secure: true,
-    };
 
-    return res
-        .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options)
-        .json(
-            new ApiResponse(
-                200,
-                {
-                    admin: loggedInAdmin,
-                    accessToken,
-                    refreshToken,
-                },
-                "Admin logged In Successfully"
-            )
+        const isPasswordValid = await admin.isPasswordCorrect(password.trim())
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid user credentials (Incorrect password)' })
+            // throw new ApiError(401, "Invalid user credentials (Incorrect password)");
+        }
+
+        // check admin is verified or not by super admin
+        const isVerifiedAdmin = admin.verifiedAdmin
+
+        if (!isVerifiedAdmin) {
+            return res.status(401).json({ message: 'This Admin is not verified by [super admin]' })
+        }
+
+        const { accessToken, refreshToken } = await generateRefreshAndAccessToken(admin._id);
+
+        // for send cookie
+        const loggedInAdmin = await Admin.findById(admin._id).select(
+            "-password -refreshToken"
         );
+
+        const options = {
+            httpOnly: true,
+            secure: true,
+        };
+
+        return res
+            .status(200)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreshToken", refreshToken, options)
+            .json(
+                new ApiResponse(
+                    200,
+                    {
+                        admin: loggedInAdmin,
+                        accessToken,
+                        // refreshToken,
+                    },
+                    "Admin logged In Successfully"
+                )
+            );
+    } catch (error) {
+        return res.status(500).json({ message: "Internal Server Error while login" })
+    }
 
 })
 
+// toggle verified email by super admin
+const toggleVerifiedEmail = async (req, res) => {
+    const { email } = req.params;
 
-export { sendOtp, verifyOtp, submitAdminDetails, loginAdmin }
+    if (!email) {
+        throw new ApiError(400, "Admin email is required");
+    }
+
+    try {
+        // Find the admin by email
+        const admin = await Admin.findOne({ email });
+
+        if (!admin) {
+            throw new ApiError(404, "Admin not found");
+        }
+
+        // Toggle the verifiedAdmin field
+        admin.verifiedAdmin = !admin.verifiedAdmin;
+
+        // Save the updated admin
+        await admin.save();
+
+        res.status(200).json(new ApiResponse(200, admin, 'Admin verification status updated successfully'));
+    } catch (error) {
+        console.error("Error updating admin verification status:", error);
+        throw new ApiError(500, "Failed to update admin verification status");
+    }
+};
+
+export { sendOtp, verifyOtp, submitAdminDetails, loginAdmin, toggleVerifiedEmail }
