@@ -4,6 +4,9 @@ import cookieParser from "cookie-parser";
 
 const app = express();
 
+// testing routes 
+app.get("/", (req, res) => res.send("Express on Vercel"));
+
 app.use(
   cors({
     // origin: process.env.CORS_ORIGIN,
