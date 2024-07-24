@@ -22,9 +22,11 @@ app.use(cookieParser());
 
 import adminRouter from "./routes/admin.routes.js"
 import studentRouter from "./routes/student.routes.js"
+import invoiceRouter from "./routes/invoice.routes.js"
 
 app.use("/api/v1/admins", adminRouter);
 app.use("/api/v1/students", studentRouter);
+app.use("/api/v1/invoices", invoiceRouter);
 
 
 

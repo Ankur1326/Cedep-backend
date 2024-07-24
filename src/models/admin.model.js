@@ -14,7 +14,7 @@ const adminSchema = new Schema(
         },
         fullName: {
             type: String,
-            required: true,
+            // required: true,
             lowecase: true,
             trim: true,
         },

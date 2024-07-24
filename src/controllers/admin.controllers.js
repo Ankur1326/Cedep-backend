@@ -29,8 +29,8 @@ const generateOTP = () => {
 let memoryStore = [];
 const sendOtp = asyncHandler(async (req, res) => {
     try {
-        const { email } = req.body;
-        // console.log("from email : ", email);
+        const { email, type } = req.body;
+        // console.log("from email and type : ", email, type);
 
         if (!email) {
             throw new ApiError(400, "email is required");
@@ -38,12 +38,11 @@ const sendOtp = asyncHandler(async (req, res) => {
 
         const otp = generateOTP();
         const expiry = Date.now() + parseInt(process.env.OTP_EXPIRY, 10);
-
-        // Store email, OTP, and expiry in the array
+        memoryStore = []
         memoryStore.push({ email, otp, expiry });
         // console.log(memoryStore);
+        await sendEmail(email, type, { otp });
 
-        await sendEmail(email, 'otp', { otp });
         res.status(200).json(new ApiResponse(200, null, 'OTP sent successfully'));
     } catch (error) {
         console.log("Internal server error while senting otp email", error);
@@ -59,7 +58,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
         // Find the matching entry in the otpStore
         const storedData = memoryStore.find(entry => entry.email === email);
 
-        // console.log("storedData : ", storedData);
+        console.log("storedData : ", storedData);
 
         if (!storedData) {
             // throw new ApiError(400, "No admin data found");
@@ -304,4 +303,36 @@ const toggleSuperAdminStatus = async (req, res) => {
     }
 };
 
-export { sendOtp, verifyOtp, submitAdminDetails, loginAdmin, toggleVerifiedStatus, getCurrentAdmin, getAllAdminsExceptSelf, toggleSuperAdminStatus }
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email, newPassword  } = req.body;
+    // console.log(email, newPassword);
+
+    if (!email) {
+        throw new ApiError(400, "Email is required");
+    }
+
+    // if (newPassword !== confirmPassword) {
+    //     // throw new ApiError(400, "Passwords do not match");
+    //     return res.status(400).json({ message: 'Passwords do not match' })
+    // }
+
+    try {
+        const admin = await Admin.findOne({ email });
+
+        if (!admin) {
+            // throw new ApiError(404, "No admin found with that email address");
+            return res.status(400).json({ message: 'No admin found with this email address' })
+        }
+
+        admin.password = newPassword;
+        await admin.save();
+        return res.status(200).json(new ApiResponse(201, "Your Password is Successfully changed"))
+
+    } catch (error) {
+        console.log("internal server error while changing password : ", error);
+        throw new ApiError(500, "internal server error while changing password")
+    }
+
+})
+
+export { sendOtp, verifyOtp, submitAdminDetails, loginAdmin, toggleVerifiedStatus, getCurrentAdmin, getAllAdminsExceptSelf, toggleSuperAdminStatus, forgotPassword }

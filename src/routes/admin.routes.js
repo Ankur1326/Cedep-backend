@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllAdminsExceptSelf, getCurrentAdmin, loginAdmin, sendOtp, submitAdminDetails, toggleVerifiedStatus, verifyOtp, toggleSuperAdminStatus } from "../controllers/admin.controllers.js";
+import { getAllAdminsExceptSelf, getCurrentAdmin, loginAdmin, sendOtp, submitAdminDetails, toggleVerifiedStatus, verifyOtp, toggleSuperAdminStatus, forgotPassword } from "../controllers/admin.controllers.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router()
@@ -9,6 +9,7 @@ router.route("/verify-otp").post(verifyOtp)
 router.route("/submit-admin-details").post(submitAdminDetails)
 
 router.route("/login").post(loginAdmin)
+router.route("/forgot-password").post(forgotPassword)
 
 // Route for toggling admin verification status using id by super admin
 router.route("/current-admin").get(verifyJWT, getCurrentAdmin)

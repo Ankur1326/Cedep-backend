@@ -11,13 +11,14 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
     // console.log("accessToken :", req.header(("Authorization"))); 
 
     if (!token) {
-      throw new ApiError(404, "Unauthorized request");
+      throw new ApiError(401, "Unauthorized request");
     }
 
     // Remove 'Bearer ' prefix if present
     if (token.startsWith("Bearer ")) {
       token = token.slice(7, token.length).trim();
     }
+    // console.log("without Bearer token : ", token);
 
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 

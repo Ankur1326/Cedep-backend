@@ -115,7 +115,6 @@ tsc_levelschema.pre('save', function (next) {
     next();
 })
 
-
 // Main schema
 const studentSchema = new Schema(
     {
@@ -123,24 +122,20 @@ const studentSchema = new Schema(
             type: String,
             unique: true,
             lowecase: true,
-            trim: true,
             index: true
         },
         permanentAddress: {
             type: String,
-            required: true,
             lowecase: true,
-            trim: true,
+            // trim: true,
         },
         email: {
             type: String,
-            required: true,
             unique: true,
             trim: true,
         },
         mobileNumber: {
             type: String,
-            required: true,
             trim: true,
         },
         telephoneNumber: {
@@ -161,7 +156,7 @@ const studentSchema = new Schema(
         //courseDetails***
         service: {
             type: String,
-            required: true,
+            // required: true,
             enum: [
                 'Public Service Commission (PSC)',
                 'Teacher Service Commission (TSC)',
@@ -246,7 +241,13 @@ const studentSchema = new Schema(
                 return this.paymentMode === 'Bank Deposit' || 'CEDEP Bill' || 'E-Sewa' || 'E-Banking'
             }
         },
-
+        registrationNum: {
+            type: String,
+            unique: true,
+            required: true,
+            trim: true,
+            index: true
+        },
     }
 )
 

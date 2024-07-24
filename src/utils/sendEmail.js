@@ -2,10 +2,17 @@ import nodemailer from 'nodemailer';
 
 const generateEmailContent = (type, data) => {
     switch (type) {
-        case 'otp':
+        case "OTP for verifing email":
             return {
                 subject: 'OTP for Admin Registration',
                 text: `Your OTP code is ${data?.otp}. Please use this code to verify your email.
+                CEDEP Institute
+                `
+            };
+        case "OTP for forgot password":
+            return {
+                subject: "OTP for forgot password",
+                text: `Your OTP code is ${data?.otp} to change password.
                 CEDEP Institute
                 `
             };
@@ -25,7 +32,7 @@ const generateEmailContent = (type, data) => {
 }
 
 export const sendEmail = async (to, type, data) => {
-    console.log(to, type, data);
+    // console.log(to, type, data);
     
     const { subject, text } = generateEmailContent(type, data);
 
