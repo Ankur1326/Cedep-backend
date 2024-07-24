@@ -15,9 +15,9 @@ const invoiceDetailsSchema = new Schema({
         enum: ['Cash', 'Cheque', 'Bank Deposit', 'eSewa', 'Khalti'],
         required: true
     },
-    particulars: {
+    particular: {
         type: String,
-        enum: ['Tution Fees', 'Materials Fees', 'Exam Fees', 'Library Fees'],
+        enum: ['Tuition Fees', 'Materials Fees', 'Exam Fees', 'Library Fees'],
         required: true
     },
     discount: { type: Number, required: true },
