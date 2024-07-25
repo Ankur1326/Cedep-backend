@@ -138,6 +138,7 @@ const submitAdminDetails = asyncHandler(async (req, res) => {
     }
 })
 
+
 const loginAdmin = asyncHandler(async (req, res) => {
     const { identifier, password } = req.body
 
@@ -206,7 +207,6 @@ const loginAdmin = asyncHandler(async (req, res) => {
 
 })
 
-
 const getCurrentAdmin = asyncHandler(async (req, res) => {
     try {
         return res
@@ -216,6 +216,38 @@ const getCurrentAdmin = asyncHandler(async (req, res) => {
         console.log("Internal server error while getting current user");
     }
 
+});
+
+const updateAdminDetails = asyncHandler(async (req, res) => {
+    const { username, fullName } = req.body;
+    const adminId = req.user._id; // Assuming you have a middleware that sets req.user to the authenticated admin
+
+    // Validation
+    if (!username || !fullName) {
+        throw new ApiError(400, "Username and Full Name are required");
+    }
+
+    try {
+        // Find the admin by ID
+        const admin = await Admin.findById(adminId);
+
+        if (!admin) {
+            throw new ApiError(404, "Admin not found");
+        }
+
+        // Update the fields
+        admin.username = username;
+        admin.fullName = fullName;
+
+        // Save the updated admin
+        await admin.save();
+
+        // Respond with the updated admin details
+        return res.status(200).json(new ApiResponse(200, admin, 'Admin details updated successfully'));
+    } catch (error) {
+        console.error("Error updating admin details:", error);
+        throw new ApiError(500, "Failed to update admin details");
+    }
 });
 
 // Controller to get all admins except the logged-in user
@@ -335,4 +367,4 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
 })
 
-export { sendOtp, verifyOtp, submitAdminDetails, loginAdmin, toggleVerifiedStatus, getCurrentAdmin, getAllAdminsExceptSelf, toggleSuperAdminStatus, forgotPassword }
+export { sendOtp, verifyOtp, submitAdminDetails, loginAdmin, toggleVerifiedStatus, getCurrentAdmin, getAllAdminsExceptSelf, toggleSuperAdminStatus, forgotPassword, updateAdminDetails }
