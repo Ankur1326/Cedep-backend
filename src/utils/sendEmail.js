@@ -33,7 +33,7 @@ const generateEmailContent = (type, data) => {
 
 export const sendEmail = async (to, type, data) => {
     // console.log(to, type, data);
-    
+
     const { subject, text } = generateEmailContent(type, data);
 
     const transporter = nodemailer.createTransport({
@@ -68,6 +68,5 @@ export const sendEmail = async (to, type, data) => {
     } catch (error) {
         console.error('Error sending email:', error);
     }
-
-    return await transporter.sendMail(mailOptions);
+    // return await transporter.sendMail(mailOptions);
 }
