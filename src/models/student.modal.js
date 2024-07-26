@@ -1,6 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import jwt from "jsonwebtoken"
-import bcrypt from "bcrypt"
+import moment from "moment";
 
 const psc_paperDefaults = {
     'Joint Secretary': { firstPaper: false, secondPaper: false },
@@ -96,7 +95,7 @@ const ds_departmentSchema = new Schema({
         },
         enum: ['Officer', 'Assistant']
     },
-})
+}, { _id: false })
 
 // Pre-save middleware to merge default and provided paper values
 psc_postSchema.pre('save', function (next) {
@@ -121,22 +120,23 @@ const studentSchema = new Schema(
         fullName: {
             type: String,
             unique: true,
-            lowecase: true,
+            required: true,
+            // lowercase: true,
             index: true
         },
         permanentAddress: {
             type: String,
-            lowecase: true,
             // trim: true,
         },
         email: {
             type: String,
-            unique: true,
             trim: true,
         },
         mobileNumber: {
             type: String,
             trim: true,
+            required: true,
+            unique: true,
         },
         telephoneNumber: {
             type: String,
@@ -149,9 +149,17 @@ const studentSchema = new Schema(
         groupName: {
             type: String,
             trim: true,
+            required: true,
         },
         idCardPhoto: {
             type: String,
+        },
+        registrationNum: {
+            type: String,
+            unique: true,
+            // required: true,
+            trim: true,
+            index: true
         },
         //courseDetails***
         service: {
@@ -209,12 +217,10 @@ const studentSchema = new Schema(
         shift: {
             type: String,
             enum: ['Morning', 'Day', 'Evening', 'Night'],
-            // required: true
         },
         // Payment Details***
         paymentMode: {
             type: String,
-            required: true,
             enum: [
                 'Bank Deposit',
                 'CEDEP Bill',
@@ -226,29 +232,58 @@ const studentSchema = new Schema(
         voucher: { // voucher image
             type: String,
             required: function () {
-                return this.paymentMode === 'Bank Deposit' || 'CEDEP Bill' || 'E-Sewa' || 'E-Banking'
+                return ['Bank Deposit', 'CEDEP Bill', 'E-Sewa', 'E-Banking'].includes(this.paymentMode);
             }
         },
         voucherAmount: {
-            type: String,
+            type: Number,
             required: function () {
-                return this.paymentMode === 'Bank Deposit' || 'CEDEP Bill' || 'E-Sewa' || 'E-Banking'
+                return ['Bank Deposit', 'CEDEP Bill', 'E-Sewa', 'E-Banking'].includes(this.paymentMode);
             }
         },
         voucherDate: {
             type: Date,
             required: function () {
-                return this.paymentMode === 'Bank Deposit' || 'CEDEP Bill' || 'E-Sewa' || 'E-Banking'
+                return ['Bank Deposit', 'CEDEP Bill', 'E-Sewa', 'E-Banking'].includes(this.paymentMode);
             }
         },
-        registrationNum: {
-            type: String,
-            unique: true,
-            required: true,
-            trim: true,
-            index: true
-        },
+    },
+    {
+        timestamps: true,
     }
 )
+
+// Counter schema to track the last sequence number
+const counterSchema = new Schema({
+    yearMonth: { type: String, required: true, unique: true }, // Format: YYYYMM
+    sequenceValue: { type: Number, default: 0 }
+})
+
+const Counter = mongoose.model("Counter", counterSchema);
+
+// Generate a new registration number
+const generateRegistrationNum = async () => {
+    const currentYearMonth = moment().format("YYYYMM")
+    let counter = await Counter.findOne({ yearMonth: currentYearMonth })
+
+    if (!counter) {
+        counter = new Counter({ yearMonth: currentYearMonth, sequenceValue: 0 })
+    }
+
+    counter.sequenceValue += 1;
+    await counter.save();
+
+    const registrationNum = `${currentYearMonth}-${String(counter.sequenceValue).padStart(3, '0')}`;
+
+    return registrationNum;
+}
+
+studentSchema.pre("save", async function (next) {
+    if (!this.registrationNum) {
+        this.registrationNum = await generateRegistrationNum();
+    }
+    next();
+});
+
 
 export const Student = mongoose.model("Student", studentSchema)

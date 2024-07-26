@@ -5,12 +5,14 @@ import { Student } from "../models/student.modal.js";
 
 const registerStudent = asyncHandler(async (req, res) => {
     try {
-        const { fullName, permanentAddress, email, mobileNumber, telephoneNumber, service, psc_post, level, bank, hc_post, ds_department, otherCourse, shift } = req.body
-        console.log(fullName, permanentAddress, email, mobileNumber, telephoneNumber, service, psc_post, bank, hc_post, level, ds_department, otherCourse, shift);
+        const { fullName, permanentAddress, email, mobileNumber, telephoneNumber,groupName, service, psc_post, level, bank, hc_post, ds_department, otherCourse, shift } = req.body
+        console.log(fullName, permanentAddress, email, mobileNumber, telephoneNumber, groupName, service, psc_post, bank, hc_post, level, ds_department, otherCourse, shift);
 
-        const existedStudent = await Student.findOne({ fullName: "Ankur Swami" })
+        const existedStudent = await Student.findOne({
+            $and: [{ fullName }, { mobileNumber }],
+        })
         if (existedStudent) {
-            await Student.deleteOne({ fullName: "Ankur Swami" })
+            return res.status(409).json({ message: "This Student is already registered" })
         }
 
         const registerStudent = await Student.create({
@@ -19,10 +21,11 @@ const registerStudent = asyncHandler(async (req, res) => {
             email,
             mobileNumber,
             telephoneNumber,
+            groupName,
             service,
-            psc_post: psc_post || {},
-            level: level || {},
-            bank: bank || {},
+            psc_post: psc_post,
+            level: level,
+            bank: bank,
             hc_post,
             ds_department,
             otherCourse,

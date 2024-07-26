@@ -1,10 +1,10 @@
 import { Invoice } from "../models/invoice.modal.js";
+import { Student } from "../models/student.modal.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const createInvoice = asyncHandler(async (req, res) => {
-    const { fullName, groupName, mobileNumber, registrationNum = "", invoice } = req.body;
-    console.log(req.body);
+    const { fullName, mobileNumber, groupName, invoiceNum, invoiceDate, modeOfPayment, particular, discount, subTotal, taxableAmount, VAT, grandTotal, authorizedSign, printDate } = req.body;
 
     try {
         if (!fullName || !groupName || !mobileNumber) {
@@ -12,25 +12,62 @@ const createInvoice = asyncHandler(async (req, res) => {
         }
 
         // Check if the fullName, mobileNumber both are exists in same invoice
-        let existingInvoice = await Invoice.findOne({ fullName, mobileNumber });
+        let existingStudent = await Student.findOne({ fullName, mobileNumber });
+        if (existingStudent) {
+            const studentId = existingStudent._id
+            const registrationNum = existingStudent.registrationNum
 
-        if (existingInvoice) {
-            // Add the provided invoice in the invoices array
-            existingInvoice.invoices.push(invoice);
-            await existingInvoice.save();
-            // console.log('Invoice added to existing Invoice');
-            return res.status(200).json(new ApiResponse(201, existingInvoice, "Invoice added to existing Invoice"))
-        }
-        else {
-            const newInvoice = new Invoice({
+            const existingInvoice = await Invoice.findOne({ invoiceNum })
+            if (!existingInvoice) {
+                // create invoice 
+                const invoice = await Invoice.create({
+                    studentId,
+                    registrationNum,
+                    invoiceNum,
+                    invoiceDate,
+                    modeOfPayment,
+                    particular,
+                    discount,
+                    subTotal,
+                    taxableAmount,
+                    VAT,
+                    grandTotal,
+                    authorizedSign,
+                    printDate,
+                })
+                return res.status(201).json(new ApiResponse(201, invoice, "Invoice created successfully with existing student"));
+            } else {
+                return res.status(400).json(new ApiResponse(409, "This Invoice is already exist"))
+            }
+
+        } else { // If student is not regestered
+            const student = await Student.create({
                 fullName,
                 mobileNumber,
                 groupName,
-                invoices: [invoice]
-            });
+            })
+            if (student) {
+                // create new invoice 
+                const studentId = student._id
+                const registrationNum = student.registrationNum
+                const invoice = await Invoice.create({
+                    studentId,
+                    registrationNum,
+                    invoiceNum,
+                    invoiceDate,
+                    modeOfPayment,
+                    particular,
+                    discount,
+                    subTotal,
+                    taxableAmount,
+                    VAT,
+                    grandTotal,
+                    authorizedSign,
+                    printDate,
+                })
+                return res.status(201).json(new ApiResponse(201, invoice, "New Invoice created successfully with new Student"));
+            }
 
-            await newInvoice.save();
-            return res.status(201).json(new ApiResponse(201, {}, "New Invoice successfully created!"));
         }
     } catch (error) {
         console.log("Error while creating new invoice : ", error);
@@ -45,63 +82,45 @@ const getMatchingRegistrations = asyncHandler(async (req, res) => {
         return res.status(400).json({ message: "Query is required" });
     }
 
-    const fullNameRegex = /^(.*?)(\d{6}-\d+)$/;
-    const matches = query.match(fullNameRegex);
-    let fullName = "";
-    let registrationNum = "";
-
-    if (matches) {
-        fullName = matches[1].trim();
-        registrationNum = matches[2].trim();
-    } else {
-        fullName = query.trim();
-    }
+    // Split the query into fullName and registrationNum
+    const [fullName, registrationNum] = query.split(/ (\d{6}-\d+)$/);
 
     try {
-        const pipeline = [
-            {
-                $match: {
-                    $and: [
-                        { fullName: { $regex: fullName, $options: "i" } },
-                        ...(registrationNum ? [{ registrationNum: { $regex: registrationNum, $options: 'i' } }] : [])
-                    ]
-                }
-            },
-            {
-                $project: {
-                    _id: 0,
-                    fullName: 1,
-                    registrationNum: 1
-                }
-            }
-        ];
+        // Search for students based on the parsed fields
+        const searchCriteria = {};
+        if (fullName) {
+            searchCriteria.fullName = { $regex: new RegExp(fullName.trim(), "i") };
+        }
+        if (registrationNum) {
+            searchCriteria.registrationNum = { $regex: new RegExp(registrationNum.trim(), "i") };
+        }
 
-        const matchingInvoices = await Invoice.aggregate(pipeline);
+        const matchingStudents = await Student.find(searchCriteria).lean();
 
-        return res.status(200).json(new ApiResponse(200, matchingInvoices, "Matching registrations fetched successfully!"));
+        return res.status(200).json(new ApiResponse(200, matchingStudents, "Matching students fetched successfully!"));
 
     } catch (error) {
-        console.error("Error while fetching matching registrations: ", error);
+        console.error("Error while fetching matching students: ", error);
         res.status(500).json({ message: error.message });
     }
 });
 
 const findInvoiceDetails = asyncHandler(async (req, res) => {
     const { registrationNum } = req.body;
-
     // Validate input
     if (!registrationNum) {
         return res.status(400).json({ message: "Registration number is required" });
     }
     try {
         // Check if the registration number exists
-        let existingInvoice = await Invoice.findOne({ registrationNum });
+        let existingStudent = await Student.findOne({ registrationNum });
+        console.log("existingStudent : ", existingStudent);
 
-        if (!existingInvoice) {
+        if (!existingStudent) {
             return res.status(200).json(new ApiResponse(201, {}, "Not Exist"))
         }
 
-        const { fullName, mobileNumber, groupName } = existingInvoice;
+        const { fullName, mobileNumber, groupName } = existingStudent;
         return res.status(200).json(new ApiResponse(201, { fullName, mobileNumber, groupName }, "This invoice is already exist!"))
     } catch (error) {
         console.log("Error while searching invoice : ", error);
