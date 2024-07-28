@@ -1,5 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import moment from "moment";
+import { Counter } from "./counter.modal.js";
 
 const psc_paperDefaults = {
     'Joint Secretary': { firstPaper: false, secondPaper: false },
@@ -119,7 +120,7 @@ const studentSchema = new Schema(
     {
         fullName: {
             type: String,
-            unique: true,
+            // unique: true,
             required: true,
             // lowercase: true,
             index: true
@@ -253,27 +254,19 @@ const studentSchema = new Schema(
     }
 )
 
-// Counter schema to track the last sequence number
-const counterSchema = new Schema({
-    yearMonth: { type: String, required: true, unique: true }, // Format: YYYYMM
-    sequenceValue: { type: Number, default: 0 }
-})
-
-const Counter = mongoose.model("Counter", counterSchema);
-
 // Generate a new registration number
 const generateRegistrationNum = async () => {
     const currentYearMonth = moment().format("YYYYMM")
     let counter = await Counter.findOne({ yearMonth: currentYearMonth })
 
     if (!counter) {
-        counter = new Counter({ yearMonth: currentYearMonth, sequenceValue: 0 })
+        counter = new Counter({ yearMonth: currentYearMonth, registrationNumSequenceValue: 0 })
     }
 
-    counter.sequenceValue += 1;
+    counter.registrationNumSequenceValue += 1;
     await counter.save();
 
-    const registrationNum = `${currentYearMonth}-${String(counter.sequenceValue).padStart(3, '0')}`;
+    const registrationNum = `${currentYearMonth}-${String(counter.registrationNumSequenceValue).padStart(3, '0')}`;
 
     return registrationNum;
 }
@@ -284,6 +277,5 @@ studentSchema.pre("save", async function (next) {
     }
     next();
 });
-
 
 export const Student = mongoose.model("Student", studentSchema)

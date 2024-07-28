@@ -2,10 +2,11 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Student } from "../models/student.modal.js";
+import { Invoice } from "../models/invoice.modal.js";
 
 const registerStudent = asyncHandler(async (req, res) => {
     try {
-        const { fullName, permanentAddress, email, mobileNumber, telephoneNumber,groupName, service, psc_post, level, bank, hc_post, ds_department, otherCourse, shift } = req.body
+        const { fullName, permanentAddress, email, mobileNumber, telephoneNumber, groupName, service, psc_post, level, bank, hc_post, ds_department, otherCourse, shift } = req.body
         console.log(fullName, permanentAddress, email, mobileNumber, telephoneNumber, groupName, service, psc_post, bank, hc_post, level, ds_department, otherCourse, shift);
 
         const existedStudent = await Student.findOne({
@@ -40,4 +41,79 @@ const registerStudent = asyncHandler(async (req, res) => {
     }
 })
 
-export { registerStudent }
+// Fetch student summary data
+const fetchStudentsSummary = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    try {
+        const students = await Student.aggregate([
+            {
+                $lookup: {
+                    from: 'invoices',
+                    localField: '_id',
+                    foreignField: 'studentId',
+                    as: 'invoices'
+                }
+            },
+            {
+                $addFields: {
+                    invoiceCount: { $size: '$invoices' }
+                }
+            },
+            {
+                $project: {
+                    fullName: 1,
+                    groupName: 1,
+                    mobileNumber: 1,
+                    registrationNum: 1,
+                    invoiceCount: 1,
+                    createdAt: 1
+                }
+            },
+            {
+                $skip: (page - 1) * limit
+            },
+            {
+                $limit: Number(limit)
+            }
+        ])
+
+        const totalCount = await Student.countDocuments()
+
+        return res.status(200).json(new ApiResponse(201, {
+            data: students,
+            total: totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+            currentPage: Number(page),
+        },
+            "Data fetched successfully"
+        ))
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+
+})
+
+// Fetch detailed student data
+const fetchStudentDetails = asyncHandler(async (req, res) => {
+    const studentId = req.params.studentId
+    if (!studentId) {
+        return res.status(400).json({message: "Student id is required"})
+    }
+    try {
+        const student = await Student.findById(req.params.studentId);
+        
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // const invoices = await Invoice.find({ studentId: student._id });
+
+        return res.status(200).json(new ApiResponse(201, student, "Successfully fetched"));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+export { registerStudent, fetchStudentsSummary, fetchStudentDetails }

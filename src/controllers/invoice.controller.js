@@ -4,7 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const createInvoice = asyncHandler(async (req, res) => {
-    const { fullName, mobileNumber, groupName, invoiceNum, invoiceDate, modeOfPayment, particular, discount, subTotal, taxableAmount, VAT, grandTotal, authorizedSign, printDate } = req.body;
+    const { fullName, mobileNumber, groupName, invoiceDate, modeOfPayment, particular, discount, subTotal, taxableAmount, VAT, grandTotal, authorizedSign, printDate } = req.body;
 
     try {
         if (!fullName || !groupName || !mobileNumber) {
@@ -17,28 +17,23 @@ const createInvoice = asyncHandler(async (req, res) => {
             const studentId = existingStudent._id
             const registrationNum = existingStudent.registrationNum
 
-            const existingInvoice = await Invoice.findOne({ invoiceNum })
-            if (!existingInvoice) {
-                // create invoice 
-                const invoice = await Invoice.create({
-                    studentId,
-                    registrationNum,
-                    invoiceNum,
-                    invoiceDate,
-                    modeOfPayment,
-                    particular,
-                    discount,
-                    subTotal,
-                    taxableAmount,
-                    VAT,
-                    grandTotal,
-                    authorizedSign,
-                    printDate,
-                })
-                return res.status(201).json(new ApiResponse(201, invoice, "Invoice created successfully with existing student"));
-            } else {
-                return res.status(400).json(new ApiResponse(409, "This Invoice is already exist"))
-            }
+            // create invoice 
+            const invoice = await Invoice.create({
+                studentId,
+                registrationNum,
+                invoiceDate,
+                modeOfPayment,
+                particular,
+                discount,
+                subTotal,
+                taxableAmount,
+                VAT,
+                grandTotal,
+                authorizedSign,
+                printDate,
+            })
+
+            return res.status(201).json(new ApiResponse(201, { invoice, existingStudent }, "Invoice created successfully with existing student"));
 
         } else { // If student is not regestered
             const student = await Student.create({
@@ -53,7 +48,6 @@ const createInvoice = asyncHandler(async (req, res) => {
                 const invoice = await Invoice.create({
                     studentId,
                     registrationNum,
-                    invoiceNum,
                     invoiceDate,
                     modeOfPayment,
                     particular,
@@ -65,7 +59,7 @@ const createInvoice = asyncHandler(async (req, res) => {
                     authorizedSign,
                     printDate,
                 })
-                return res.status(201).json(new ApiResponse(201, invoice, "New Invoice created successfully with new Student"));
+                return res.status(201).json(new ApiResponse(201, { invoice, student }, "New Invoice created successfully with new Student"));
             }
 
         }
@@ -128,4 +122,25 @@ const findInvoiceDetails = asyncHandler(async (req, res) => {
     }
 })
 
-export { createInvoice, findInvoiceDetails, getMatchingRegistrations }
+const getStudentInvoices = asyncHandler(async (req, res) => {
+    const { studentId } = req.params
+    if (!studentId) {
+        return res.status(400).json({ message: "Student id is required" })
+    }
+
+    try {
+        const invoices = await Invoice.find({ studentId })
+
+        if (!invoices) {
+            return res.status(400).json({ message: "Invoices is not found" })
+        }
+
+        return res.status(200).json(new ApiResponse(201, invoices, "Invoices successfully fetched"))
+
+    } catch (error) {
+        console.log("Error while fetching student invoices ");
+    }
+
+})
+
+export { createInvoice, findInvoiceDetails, getMatchingRegistrations, getStudentInvoices }

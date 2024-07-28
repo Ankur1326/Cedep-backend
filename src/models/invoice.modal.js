@@ -1,4 +1,6 @@
 import mongoose, { Schema } from "mongoose";
+import { Counter } from "./counter.modal.js";
+import moment from "moment";
 
 const invoiceSchema = new Schema(
     {
@@ -14,7 +16,6 @@ const invoiceSchema = new Schema(
         invoiceNum: {
             type: String,
             unique: true,
-            required: true
         },
         invoiceDate: { type: Date, required: true },
         modeOfPayment: {
@@ -54,5 +55,29 @@ const invoiceSchema = new Schema(
         timestamps: true,
     }
 )
+
+// Generate a new registration number
+const generateInvoiceNum = async () => {
+    const currentYearMonth = moment().format("YYYYMM")
+    let counter = await Counter.findOne({ yearMonth: currentYearMonth })
+
+    if (!counter) {
+        counter = new Counter({ yearMonth: currentYearMonth, invoiceSequenceNumValue: 0 })
+    }
+
+    counter.invoiceSequenceNumValue += 1;
+    await counter.save();
+
+    const invoiceNum = `CN-${currentYearMonth}-${String(counter.invoiceSequenceNumValue).padStart(3, '0')}`;
+
+    return invoiceNum;
+}
+
+invoiceSchema.pre("save", async function (next) {
+    if (!this.invoiceNum) {
+        this.invoiceNum = await generateInvoiceNum();
+    }
+    next();
+});
 
 export const Invoice = mongoose.model("Invoice", invoiceSchema)
