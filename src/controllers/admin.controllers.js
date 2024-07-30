@@ -65,7 +65,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
             return res.status(400).json({ message: 'No admin data found' })
         }
 
-        if (storedData.otp !== otp) {
+        if (storedData.otp !== otp) {   
             // throw new ApiError(400, "Invalid OTP");
             return res.status(400).json({ message: 'Invalid OTP' })
         }
@@ -242,7 +242,6 @@ const updateAdminDetails = asyncHandler(async (req, res) => {
         // Save the updated admin
         await admin.save();
 
-        // Respond with the updated admin details
         return res.status(200).json(new ApiResponse(200, admin, 'Admin details updated successfully'));
     } catch (error) {
         console.error("Error updating admin details:", error);

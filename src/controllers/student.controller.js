@@ -99,11 +99,11 @@ const fetchStudentsSummary = asyncHandler(async (req, res) => {
 const fetchStudentDetails = asyncHandler(async (req, res) => {
     const studentId = req.params.studentId
     if (!studentId) {
-        return res.status(400).json({message: "Student id is required"})
+        return res.status(400).json({ message: "Student id is required" })
     }
     try {
         const student = await Student.findById(req.params.studentId);
-        
+
         if (!student) {
             return res.status(404).json({ message: 'Student not found' });
         }
@@ -116,4 +116,33 @@ const fetchStudentDetails = asyncHandler(async (req, res) => {
     }
 });
 
-export { registerStudent, fetchStudentsSummary, fetchStudentDetails }
+const updateStudentDetails = asyncHandler(async (req, res) => {
+    const { fullName, permanentAddress, email, mobileNumber, groupName } = req.body
+    const studentId = req.params.studentId
+    if (!studentId) {
+        return res.status(404).json({ message: 'Student Id is required' });
+    }
+
+
+    try {
+        const student = await Student.findById(studentId)
+
+        student.fullName = fullName
+        student.permanentAddress = permanentAddress
+        student.email = email
+        student.mobileNumber = mobileNumber
+        student.groupName = groupName
+
+        await student.save()
+
+        return res.status(200).json(new ApiResponse(200, student, 'Student details updated successfully'));
+
+    } catch (error) {
+        console.error("Error updating student details:", error);
+        // throw new ApiError(500, "Failed to update student details");
+        res.status(500).json({ message: "Failed to update student details" })
+
+    }
+})
+
+export { registerStudent, fetchStudentsSummary, fetchStudentDetails, updateStudentDetails }

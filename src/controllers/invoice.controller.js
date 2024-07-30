@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Invoice } from "../models/invoice.modal.js";
 import { Student } from "../models/student.modal.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -12,10 +13,10 @@ const createInvoice = asyncHandler(async (req, res) => {
         }
 
         // Check if the fullName, mobileNumber both are exists in same invoice
-        let existingStudent = await Student.findOne({ fullName, mobileNumber });
-        if (existingStudent) {
-            const studentId = existingStudent._id
-            const registrationNum = existingStudent.registrationNum
+        let student = await Student.findOne({ fullName, mobileNumber });
+        if (student) {
+            const studentId = student._id
+            const registrationNum = student.registrationNum
 
             // create invoice 
             const invoice = await Invoice.create({
@@ -33,7 +34,7 @@ const createInvoice = asyncHandler(async (req, res) => {
                 printDate,
             })
 
-            return res.status(201).json(new ApiResponse(201, { invoice, existingStudent }, "Invoice created successfully with existing student"));
+            return res.status(201).json(new ApiResponse(201, { invoice, student }, "Invoice created successfully with existing student"));
 
         } else { // If student is not regestered
             const student = await Student.create({
@@ -76,32 +77,49 @@ const getMatchingRegistrations = asyncHandler(async (req, res) => {
         return res.status(400).json({ message: "Query is required" });
     }
 
-    // Split the query into fullName and registrationNum
-    const [fullName, registrationNum] = query.split(/ (\d{6}-\d+)$/);
-
     try {
-        // Search for students based on the parsed fields
+        // Initialize search criteria object
         const searchCriteria = {};
-        if (fullName) {
-            searchCriteria.fullName = { $regex: new RegExp(fullName.trim(), "i") };
+
+        // Check if the query contains a registration number in the expected format
+        const registrationNumMatch = query.match(/\d{6}-\d+/);
+        if (registrationNumMatch) {
+            searchCriteria.registrationNum = {
+                $regex: new RegExp(registrationNumMatch[0].trim(), "i"),
+            };
         }
-        if (registrationNum) {
-            searchCriteria.registrationNum = { $regex: new RegExp(registrationNum.trim(), "i") };
+
+        // The remaining part of the query is treated as fullName
+        const fullName = query.replace(/\d{6}-\d+/, "").trim();
+        if (fullName) {
+            searchCriteria.fullName = {
+                $regex: new RegExp(fullName, "i"),
+            };
+        }
+
+        // If neither fullName nor registrationNum are present, return a bad request response
+        if (!fullName && !registrationNumMatch) {
+            return res.status(400).json({ message: "Invalid query format" });
         }
 
         const matchingStudents = await Student.find(searchCriteria).lean();
 
-        return res.status(200).json(new ApiResponse(200, matchingStudents, "Matching students fetched successfully!"));
-
+        return res.status(200).json(
+            new ApiResponse(
+                200,
+                matchingStudents,
+                "Matching students fetched successfully!"
+            )
+        );
     } catch (error) {
         console.error("Error while fetching matching students: ", error);
         res.status(500).json({ message: error.message });
     }
 });
 
-const findInvoiceDetails = asyncHandler(async (req, res) => {
+const findStudentDetails = asyncHandler(async (req, res) => {
     const { registrationNum } = req.body;
-    // Validate input
+
     if (!registrationNum) {
         return res.status(400).json({ message: "Registration number is required" });
     }
@@ -122,20 +140,34 @@ const findInvoiceDetails = asyncHandler(async (req, res) => {
     }
 })
 
-const getStudentInvoices = asyncHandler(async (req, res) => {
+const getStudentInvoicesSummary = asyncHandler(async (req, res) => {
     const { studentId } = req.params
     if (!studentId) {
         return res.status(400).json({ message: "Student id is required" })
     }
 
     try {
-        const invoices = await Invoice.find({ studentId })
+        const invoicesSummary = await Invoice.aggregate([
+            {
+                $match: {
+                    studentId: new mongoose.Types.ObjectId(studentId)
+                }
+            },
+            {
+                $project: {
+                    invoiceNum: 1,
+                    modeOfPayment: 1,
+                    invoiceDate: 1,
+                    grandTotal: 1
+                }
+            }
+        ])
 
-        if (!invoices) {
-            return res.status(400).json({ message: "Invoices is not found" })
+        if (!invoicesSummary) {
+            return res.status(400).json({ message: "Invoices summary is not found" })
         }
 
-        return res.status(200).json(new ApiResponse(201, invoices, "Invoices successfully fetched"))
+        return res.status(200).json(new ApiResponse(201, invoicesSummary, "Invoices successfully fetched"))
 
     } catch (error) {
         console.log("Error while fetching student invoices ");
@@ -143,4 +175,51 @@ const getStudentInvoices = asyncHandler(async (req, res) => {
 
 })
 
-export { createInvoice, findInvoiceDetails, getMatchingRegistrations, getStudentInvoices }
+const fetchInvoiceDetailsWithStudent = asyncHandler(async (req, res) => {
+    const { invoiceId } = req.params
+
+    if (!invoiceId) {
+        return res.status(400).json({ message: "Invoice id is required" })
+    }
+
+    try {
+        const invoiceDetails = await Invoice.aggregate([
+            {
+                $match: {
+                    _id: new mongoose.Types.ObjectId(invoiceId)
+                },
+            },
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "studentId",
+                    foreignField: "_id",
+                    as: "student",
+                    pipeline: [
+                        {
+                            $project: {
+                                fullName: 1,
+                                groupName: 1,
+                                mobileNumber: 1,
+                                registrationNum: 1,
+                            }
+                        }
+                    ]
+                }
+            }
+        ])
+
+        if (!invoiceDetails) {
+            return res.status(400).json({ message: "Invoice details is not found" })
+        }
+
+        return res.status(200).json(new ApiResponse(201, invoiceDetails, "Invoice details successfully fetched"))
+
+    } catch (error) {
+        console.log("Internal server error while fetching invoice details", error);
+        return res.status(500).json({ message: "Internal server error while fetching invoice details" })
+    }
+
+})
+
+export { createInvoice, findStudentDetails, getMatchingRegistrations, getStudentInvoicesSummary, fetchInvoiceDetailsWithStudent }
