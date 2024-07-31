@@ -43,10 +43,17 @@ const registerStudent = asyncHandler(async (req, res) => {
 
 // Fetch student summary data
 const fetchStudentsSummary = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, search = '' } = req.query;
 
     try {
+        const searchRegex = new RegExp(search, 'i');
+
         const students = await Student.aggregate([
+            {
+                $match: {
+                    fullName: { $regex: searchRegex }
+                }
+            },
             {
                 $lookup: {
                     from: 'invoices',
